@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRID DRAW — X-CHALLENGE</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wood:#d9a86a; --wood-dark:#b9834a; --wood-deep:#8f6136;
+    --cream:#fdf8ee; --ivory:#f7f2e8; --ivory-dim:#ece4d3;
+    --orange:#EA580C; --ink:#1a1610; --sub:#6b6357; --line:#ddd4c2;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background:linear-gradient(180deg,#fbf3e4,#f3e6cf);
+    font-family:'Noto Sans KR',sans-serif;
+    color:var(--ink);
+    display:flex; flex-direction:column; align-items:center;
+    padding:28px 16px 60px;
+  }
+  .title-row{text-align:center;margin-bottom:22px;}
+  .eyebrow{font-family:'Bebas Neue';font-size:15px;letter-spacing:.25em;color:var(--orange);}
+  .title{font-family:'Bebas Neue';font-size:44px;letter-spacing:.04em;line-height:1;margin-top:2px;color:#5a3d22;}
+
+  /* 설정 패널 */
+  .panel{
+    width:100%; max-width:720px;
+    background:#fff; border:1px solid var(--line); border-radius:16px;
+    padding:22px 22px 24px; margin-bottom:20px;
+  }
+  .panel h2{font-family:'Bebas Neue';font-size:20px;letter-spacing:.06em;margin:0 0 14px;color:var(--ink);}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:6px;}
+  textarea{
+    width:100%; min-height:150px; resize:vertical;
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+    font-family:'Noto Sans KR',sans-serif; font-size:14px; color:var(--ink);
+    background:#fdfbf7;
+  }
+  
+  .prize-row{display:flex; gap:8px; margin-bottom:8px; align-items:center;}
+  .prize-row input[type=text]{flex:1;}
+  .prize-row input[type=number]{width:78px;}
+  input[type=text], input[type=number]{
+    border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+    font-family:'Noto Sans KR',sans-serif; font-size:14px; background:#fdfbf7; color:var(--ink);
+  }
+
+  .start-btn{
+    display:block; width:100%; max-width:720px; margin:0 auto;
+    background:var(--orange); color:#fff; border:none; border-radius:14px;
+    padding:18px; font-family:'Bebas Neue', 'Noto Sans KR'; font-size:22px; font-weight:900; letter-spacing:.08em;
+    cursor:pointer; transition:transform .1s, opacity .2s;
+  }
+  .start-btn:active{transform:scale(.99);}
+
+  /* 추첨 전광판 */
+  .cabinet{
+    display:none;
+    background:linear-gradient(160deg,var(--wood),var(--wood-dark) 60%,var(--wood-deep));
+    border-radius:20px; padding:16px;
+    width:100%; max-width:720px;
+    box-shadow:0 20px 45px rgba(120,80,40,.25), inset 0 2px 0 rgba(255,255,255,.25);
+    margin-bottom: 20px;
+  }
+  .marquee{
+    text-align:center; padding:2px 0 14px; 
+    font-family:'Bebas Neue'; letter-spacing:.15em; font-size:18px; color:#fdf8ee; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .grid-board {
+    display: grid; gap: 8px; background: var(--cream);
+    padding: 16px; border-radius: 12px; border: 4px solid #fffaf0;
+    box-shadow: inset 0 0 10px rgba(140,95,50,.3);
+  }
+
+  .name-card {
+    background: #fff; border: 2px solid var(--line); border-radius: 8px;
+    padding: 10px 4px; text-align: center; font-size: 14px; font-weight: 700;
+    transition: all 0.1s; display: flex; flex-direction: column; justify-content: center;
+    min-height: 54px; word-break: keep-all;
+  }
+
+  .name-card.flashing {
+    background: #ffb84d; color: #fff; border-color: #EA580C;
+    transform: scale(1.08); box-shadow: 0 4px 10px rgba(234, 88, 12, 0.4); z-index: 10;
+  }
+
+  .name-card.winner {
+    background: var(--orange); color: #fff; border-color: #c0392b;
+    transform: scale(1.05); box-shadow: 0 4px 10px rgba(234, 88, 12, 0.5);
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  .prize-label {
+    display: none; font-size: 11px; font-weight: 900; color: #ffeaa7; margin-top: 4px;
+  }
+  .name-card.winner .prize-label { display: block; }
+
+  .name-card.dimmed { opacity: 0.35; background: #f0ebe1; border-color: transparent; }
+
+  @keyframes popIn {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1.05); }
+  }
+
+  /* 링크 공유 패널 (관리자용) */
+  #sharePanel {
+    display: none; width: 100%; max-width: 720px; background: #fff; border-radius: 12px;
+    padding: 20px; text-align: center; margin-top: 10px; border: 2px dashed var(--orange);
+  }
+  #shareUrl {
+    width: 100%; padding: 10px; margin: 10px 0; border-radius: 6px; border: 1px solid var(--line);
+    font-size: 12px; color: var(--sub); background: #fdfbf7; word-break: break-all;
+  }
+</style>
+</head>
+<body>
+
+<div class="title-row">
+  <div class="eyebrow">X-CHALLENGE · SEPTEMBER</div>
+  <div class="title">LUCKY DRAW</div>
+</div>
+
+<!-- 관리자용 설정 패널 -->
+<div id="adminArea">
+  <div class="panel" id="setupPanel">
+    <h2>참가자 명단</h2>
+    <div class="field">
+      <label>구글 시트에서 이름을 드래그하여 복사한 뒤, 여기에 붙여넣기 하세요.</label>
+      <textarea id="namesInput" placeholder="이풍열&#10;김유미&#10;박석희&#10;..."></textarea>
+    </div>
+  </div>
+
+  <div class="panel" id="prizePanel">
+    <h2>상품 구성</h2>
+    <div id="prizeRows"></div>
+  </div>
+</div>
+
+<button class="start-btn" id="startBtn">추첨 생성하기</button>
+
+<!-- 전광판 -->
+<div class="cabinet" id="drawCabinet">
+  <div class="marquee">✦ WINNERS BOARD ✦</div>
+  <div class="grid-board" id="gridBoard"></div>
+</div>
+
+<!-- 링크 공유 패널 -->
+<div id="sharePanel">
+  <h3 style="margin-top:0; color:var(--orange);">🎉 추첨 결과가 생성되었습니다!</h3>
+  <p style="font-size:13px; color:var(--sub); margin-bottom:10px;">
+    아래 링크를 복사해서 참가자들에게 공유하세요.<br>
+    이 링크로 접속하면 모두가 <strong>방금 뽑힌 똑같은 결과</strong>를 보게 됩니다.
+  </p>
+  <textarea id="shareUrl" rows="3" readonly></textarea>
+  <button onclick="copyLink()" style="background:var(--sub); color:#fff; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:bold;">링크 복사하기</button>
+</div>
+
+<script>
+// --- 요청하신 상품 세팅 ---
+let prizes = [
+  {name:"엑스삭스 퍼폼", qty:2},
+  {name:"엑스삭스 디스커버", qty:1},
+  {name:"아나토믹스 삭스", qty:2},
+  {name:"이펙터삭스", qty:1},
+  {name:"러닝벨트", qty:3},
+  {name:"할인쿠폰", qty:5}
+];
+
+const prizeRowsEl = document.getElementById('prizeRows');
+function renderPrizeRows(){
+  prizeRowsEl.innerHTML = prizes.map((p,i)=>`
+    <div class="prize-row">
+      <input type="text" value="${p.name}" onchange="prizes[${i}].name=this.value">
+      <input type="number" min="0" value="${p.qty}" onchange="prizes[${i}].qty=parseInt(this.value)||0">
+    </div>
+  `).join('');
+}
+renderPrizeRows();
+
+function shuffle(array) {
+  let currentIndex = array.length, randomIndex;
+  while (currentIndex !== 0) {
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+  }
+  return array;
+}
+
+// --- 1. 링크로 접속한 참가자인지 확인 (데이터 복호화) ---
+const urlParams = new URLSearchParams(window.location.search);
+const sharedData = urlParams.get('data');
+let viewerMode = false;
+let preCalculatedData = null;
+
+if(sharedData) {
+  try {
+    const decodedStr = decodeURIComponent(atob(sharedData).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    
+    preCalculatedData = JSON.parse(decodedStr);
+    viewerMode = true;
+
+    // 참가자 모드 뷰
+    document.getElementById('adminArea').style.display = 'none';
+    const startBtn = document.getElementById('startBtn');
+    startBtn.innerText = "나의 운명 확인하기 (추첨 재생)";
+    startBtn.style.background = "#c0392b"; 
+
+  } catch(e) {
+    alert("올바르지 않은 공유 링크입니다. 관리자 모드로 시작합니다.");
+  }
+}
+
+// --- 2. 메인 실행 함수 ---
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  let participants = [];
+  let winningResults = {};
+
+  if (viewerMode) {
+    participants = preCalculatedData.participants;
+    winningResults = preCalculatedData.winningResults;
+  } else {
+    const raw = document.getElementById('namesInput').value.trim();
+    participants = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+    
+    if(participants.length < 2) return alert('참가자를 2명 이상 입력해주세요.');
+
+    let drawQueue = [];
+    prizes.forEach(p => {
+      for(let i=0; i<p.qty; i++) {
+        if(p.name.trim() !== '') drawQueue.push(p.name);
+      }
+    });
+
+    if(drawQueue.length === 0) return alert('상품을 설정해주세요.');
+    if(drawQueue.length > participants.length) return alert('상품 개수가 참가자 수보다 많습니다!');
+
+    let shuffledIndices = shuffle([...Array(participants.length).keys()]);
+    for(let i=0; i<drawQueue.length; i++){
+      winningResults[shuffledIndices[i]] = drawQueue[i];
+    }
+  }
+
+  document.getElementById('adminArea').style.display = 'none';
+  document.getElementById('startBtn').style.display = 'none';
+  
+  const cabinet = document.getElementById('drawCabinet');
+  cabinet.style.display = 'block';
+
+  const gridBoard = document.getElementById('gridBoard');
+  const cols = participants.length > 30 ? 5 : (participants.length > 16 ? 4 : 3); 
+  gridBoard.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  gridBoard.innerHTML = '';
+  
+  participants.forEach((name, index) => {
+    const card = document.createElement('div');
+    card.className = 'name-card';
+    card.innerHTML = `<span class="name-text">${name}</span><span class="prize-label"></span>`;
+    gridBoard.appendChild(card);
+  });
+
+  // 애니메이션 실행
+  let flashCount = 0;
+  let maxFlashes = 45; // 깜빡이는 시간
+  let cards = document.querySelectorAll('.name-card');
+  
+  let flashInterval = setInterval(() => {
+    cards.forEach(c => c.classList.remove('flashing'));
+    for(let i=0; i<cols; i++){ 
+      let rand = Math.floor(Math.random() * participants.length);
+      cards[rand].classList.add('flashing');
+    }
+    flashCount++;
+    
+    if(flashCount >= maxFlashes) {
+      clearInterval(flashInterval);
+      cards.forEach(c => c.classList.remove('flashing'));
+      
+      cards.forEach((card, index) => {
+        if(winningResults[index]) {
+          card.classList.add('winner');
+          card.querySelector('.prize-label').innerText = winningResults[index];
+        } else {
+          card.classList.add('dimmed');
+        }
+      });
+
+      if(!viewerMode) {
+        generateShareLink(participants, winningResults);
+      }
+    }
+  }, 80);
+});
+
+// --- 3. 공유 링크 생성 함수 (관리자 전용) ---
+function generateShareLink(participants, winningResults) {
+  const dataObj = { participants, winningResults };
+  
+  const encodedData = btoa(encodeURIComponent(JSON.stringify(dataObj)).replace(/%([0-9A-F]{2})/g,
+      function toSolidBytes(match, p1) {
+          return String.fromCharCode('0x' + p1);
+  }));
+
+  const baseUrl = window.location.href.split('?')[0]; 
+  const shareUrl = `${baseUrl}?data=${encodedData}`;
+
+  document.getElementById('sharePanel').style.display = 'block';
+  document.getElementById('shareUrl').value = shareUrl;
+}
+
+function copyLink() {
+  const urlBox = document.getElementById('shareUrl');
+  urlBox.select();
+  document.execCommand('copy');
+  alert('참가자 공유용 링크가 복사되었습니다!');
+}
+</script>
+</body>
+</html>
