@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRID DRAW — X-CHALLENGE</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wood:#d9a86a; --wood-dark:#b9834a; --wood-deep:#8f6136;
+    --cream:#fdf8ee; --ivory:#f7f2e8; --ivory-dim:#ece4d3;
+    --orange:#EA580C; --ink:#1a1610; --sub:#6b6357; --line:#ddd4c2;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background:linear-gradient(180deg,#fbf3e4,#f3e6cf);
+    font-family:'Noto Sans KR',sans-serif;
+    color:var(--ink);
+    display:flex; flex-direction:column; align-items:center;
+    padding:28px 16px 60px;
+  }
+  .title-row{text-align:center;margin-bottom:22px;}
+  .eyebrow{font-family:'Bebas Neue';font-size:15px;letter-spacing:.25em;color:var(--orange);}
+  .title{font-family:'Bebas Neue';font-size:44px;letter-spacing:.04em;line-height:1;margin-top:2px;color:#5a3d22;}
+
+  /* 설정 패널 */
+  .panel{
+    width:100%; max-width:720px;
+    background:#fff; border:1px solid var(--line); border-radius:16px;
+    padding:22px 22px 24px; margin-bottom:20px;
+  }
+  .panel h2{font-family:'Bebas Neue';font-size:20px;letter-spacing:.06em;margin:0 0 14px;color:var(--ink);}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:6px;}
+  textarea{
+    width:100%; min-height:150px; resize:vertical;
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+    font-family:'Noto Sans KR',sans-serif; font-size:14px; color:var(--ink);
+    background:#fdfbf7;
+  }
+  
+  .prize-row{display:flex; gap:8px; margin-bottom:8px; align-items:center;}
+  .prize-row input[type=text]{flex:1;}
+  .prize-row input[type=number]{width:78px;}
+  input[type=text], input[type=number]{
+    border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+    font-family:'Noto Sans KR',sans-serif; font-size:14px; background:#fdfbf7; color:var(--ink);
+  }
+
+  .start-btn{
+    display:block; width:100%; max-width:720px; margin:0 auto;
+    background:var(--orange); color:#fff; border:none; border-radius:14px;
+    padding:18px; font-family:'Bebas Neue', 'Noto Sans KR'; font-size:22px; font-weight:900; letter-spacing:.08em;
+    cursor:pointer; transition:transform .1s, opacity .2s;
+  }
+  .start-btn:active{transform:scale(.99);}
+
+  /* 추첨 전광판 */
+  .cabinet{
+    display:none;
+    background:linear-gradient(160deg,var(--wood),var(--wood-dark) 60%,var(--wood-deep));
+    border-radius:20px; padding:16px;
+    width:100%; max-width:720px;
+    box-shadow:0 20px 45px rgba(120,80,40,.25), inset 0 2px 0 rgba(255,255,255,.25);
+    margin-bottom: 20px;
+  }
+  .marquee{
+    text-align:center; padding:2px 0 14px; 
+    font-family:'Bebas Neue'; letter-spacing:.15em; font-size:18px; color:#fdf8ee; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .draw-status {
+    text-align:center; min-height:52px; margin:-4px 0 12px;
+    color:#fdf8ee; text-shadow:1px 1px 2px rgba(0,0,0,.3);
+  }
+  .draw-status .count { font-family:'Bebas Neue'; font-size:15px; letter-spacing:.15em; opacity:.85; }
+  .draw-status .prize { font-size:20px; font-weight:900; margin-top:2px; }
+
+  .grid-board {
+    display: grid; gap: 8px; background: var(--cream);
+    padding: 16px; border-radius: 12px; border: 4px solid #fffaf0;
+    box-shadow: inset 0 0 10px rgba(140,95,50,.3);
+  }
+
+  .name-card {
+    background: #fff; border: 2px solid var(--line); border-radius: 8px;
+    padding: 10px 4px; text-align: center; font-size: 14px; font-weight: 700;
+    transition: all 0.1s; display: flex; flex-direction: column; justify-content: center;
+    min-height: 54px; word-break: keep-all;
+  }
+
+  .name-card.flashing {
+    background: #ffb84d; color: #fff; border-color: #EA580C;
+    transform: scale(1.08); box-shadow: 0 4px 10px rgba(234, 88, 12, 0.4); z-index: 10;
+  }
+
+  .name-card.winner {
+    background: var(--orange); color: #fff; border-color: #c0392b;
+    transform: scale(1.05); box-shadow: 0 4px 10px rgba(234, 88, 12, 0.5);
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  .prize-label {
+    display: none; font-size: 11px; font-weight: 900; color: #ffeaa7; margin-top: 4px;
+  }
+  .name-card.winner .prize-label { display: block; }
+
+  .name-card.dimmed { opacity: 0.35; background: #f0ebe1; border-color: transparent; }
+
+  @keyframes popIn {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1.05); }
+  }
+
+  /* 링크 공유 패널 (관리자용) */
+  #sharePanel {
+    display: none; width: 100%; max-width: 720px; background: #fff; border-radius: 12px;
+    padding: 20px; text-align: center; margin-top: 10px; border: 2px dashed var(--orange);
+  }
+  #shareUrl {
+    width: 100%; padding: 10px; margin: 10px 0; border-radius: 6px; border: 1px solid var(--line);
+    font-size: 12px; color: var(--sub); background: #fdfbf7; word-break: break-all;
+  }
+
+  /* 추첨 방식 안내 (모두에게 보임) */
+  .method {
+    width:100%; max-width:720px; margin-top:20px;
+    background:#fff; border:1px solid var(--line); border-radius:16px;
+    padding:20px 22px;
+  }
+  .method h3 { margin:0 0 12px; font-size:15px; font-weight:900; color:var(--ink); }
+  .method ul { margin:0; padding-left:18px; }
+  .method li { font-size:13.5px; line-height:1.75; color:var(--sub); margin-bottom:4px; word-break:keep-all; }
+  .method li strong { color:var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="title-row">
+  <div class="eyebrow">X-CHALLENGE · SEPTEMBER</div>
+  <div class="title">LUCKY DRAW</div>
+</div>
+
+<!-- 관리자용 설정 패널 -->
+<div id="adminArea">
+  <div class="panel" id="setupPanel">
+    <h2>참가자 명단</h2>
+    <div class="field">
+      <label>구글 시트에서 이름을 드래그하여 복사한 뒤, 여기에 붙여넣기 하세요.</label>
+      <textarea id="namesInput" placeholder="이풍열&#10;김유미&#10;박석희&#10;...">나정
+이진혁
+서유진
+엄창완
+윤영민
+김홍일
+이태환
+김민욱
+류세환
+김영기
+정희택
+우남욱
+김인태
+김현숙
+공현호
+최선진
+송연지
+박상민
+김성현
+이지희
+강동엽
+고병기
+이경우
+박홍민
+김승태
+권소정
+양다정
+하성욱
+이경호
+이동민
+김강현
+권지수
+차정현
+홍진주
+송정아
+김재국
+김종진
+곽미영
+최양범
+이승제</textarea>
+    </div>
+  </div>
+
+  <div class="panel" id="prizePanel">
+    <h2>상품 구성</h2>
+    <div id="prizeRows"></div>
+  </div>
+</div>
+
+<button class="start-btn" id="startBtn">추첨 생성하기</button>
+
+<!-- 전광판 -->
+<div class="cabinet" id="drawCabinet">
+  <div class="marquee">✦ WINNERS BOARD ✦</div>
+  <div class="draw-status" id="drawStatus"></div>
+  <div class="grid-board" id="gridBoard"></div>
+</div>
+
+<!-- 링크 공유 패널 -->
+<div id="sharePanel">
+  <h3 style="margin-top:0; color:var(--orange);">🎉 추첨 결과가 생성되었습니다!</h3>
+  <p style="font-size:13px; color:var(--sub); margin-bottom:10px;">
+    아래 링크를 복사해서 참가자들에게 공유하세요.<br>
+    이 링크로 접속하면 모두가 <strong>방금 뽑힌 똑같은 결과</strong>를 보게 됩니다.
+  </p>
+  <textarea id="shareUrl" rows="3" readonly></textarea>
+  <button onclick="copyLink()" style="background:var(--sub); color:#fff; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:bold;">링크 복사하기</button>
+</div>
+
+<!-- 추첨 방식 안내 -->
+<section class="method" id="methodInfo">
+  <h3>추첨 방식 안내</h3>
+  <ul>
+    <li><strong>모든 참가자가 같은 확률</strong>로 추첨됩니다. 기록이나 순위는 당첨 확률에 영향을 주지 않습니다.</li>
+    <li>참가자 명단 전체를 <strong>피셔-예이츠(Fisher–Yates) 셔플</strong>로 무작위로 섞은 뒤, 섞인 순서대로 상품을 한 개씩 배정합니다. 특정 이름이나 명단 순서가 유리해지지 않는 표준 무작위 섞기 방식입니다.</li>
+    <li>한 사람당 상품은 최대 1개이며, 중복 당첨은 없습니다.</li>
+    <li>남자부·여자부 1위는 별도 시상(X-BIONIC 테라스킨 트레일러닝화)으로 럭키드로우 대상에서 제외됩니다.</li>
+    <li>추첨은 한 번만 실행되고, 그 결과가 이 링크에 그대로 저장되어 있습니다. 누가 언제 열어도 같은 결과가 재생됩니다.</li>
+    <li>화면에서 불빛이 돌며 한 명씩 공개되는 장면은 연출입니다. 당첨 결과는 추첨을 실행한 순간 이미 확정됩니다.</li>
+  </ul>
+</section>
+
+<script>
+// --- 요청하신 상품 세팅 ---
+let prizes = [
+  {name:"런 퍼폼 삭스", qty:1},
+  {name:"트레일런 디스커버 삭스", qty:1},
+  {name:"아나토믹스 삭스", qty:1},
+  {name:"런 익스퍼트 이펙터 OTC 삭스", qty:1},
+  {name:"PATHFLOW 러닝벨트", qty:3},
+  {name:"X-BIONIC 러닝캡", qty:1}
+];
+
+const prizeRowsEl = document.getElementById('prizeRows');
+function renderPrizeRows(){
+  prizeRowsEl.innerHTML = prizes.map((p,i)=>`
+    <div class="prize-row">
+      <input type="text" value="${p.name}" onchange="prizes[${i}].name=this.value">
+      <input type="number" min="0" value="${p.qty}" onchange="prizes[${i}].qty=parseInt(this.value)||0">
+    </div>
+  `).join('');
+}
+renderPrizeRows();
+
+// [수정] 브라우저 암호학적 난수(crypto.getRandomValues) 사용, 편향 없는 정수 뽑기
+function randomInt(max) {
+  if (window.crypto && crypto.getRandomValues) {
+    const limit = Math.floor(0x100000000 / max) * max;
+    const buf = new Uint32Array(1);
+    do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
+    return buf[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+}
+
+function shuffle(array) {
+  let currentIndex = array.length, randomIndex;
+  while (currentIndex !== 0) {
+    randomIndex = randomInt(currentIndex);
+    currentIndex--;
+    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+  }
+  return array;
+}
+
+// --- 1. 링크로 접속한 참가자인지 확인 (데이터 복호화) ---
+const urlParams = new URLSearchParams(window.location.search);
+// [수정] URLSearchParams는 '+'를 공백으로 바꿔서 읽기 때문에, 공백을 다시 '+'로 복원
+// → 이미 복사해 둔 예전 링크도 이 수정만으로 정상 작동
+const sharedData = (urlParams.get('data') || '').replace(/ /g, '+');
+let viewerMode = false;
+let preCalculatedData = null;
+
+// [결과 전용 페이지] 9월 럭키드로우 최종 결과 고정 (2026.09.22 추첨)
+const EMBEDDED_RESULT = {"participants": ["나정", "이진혁", "서유진", "엄창완", "윤영민", "김홍일", "이태환", "김민욱", "류세환", "김영기", "정희택", "우남욱", "김인태", "김현숙", "공현호", "최선진", "송연지", "박상민", "김성현", "이지희", "강동엽", "고병기", "이경우", "박홍민", "김승태", "권소정", "양다정", "하성욱", "이경호", "이동민", "김강현", "권지수", "차정현", "홍진주", "송정아", "김재국", "김종진", "곽미영", "최양범", "이승제"], "winningResults": {"17": "PATHFLOW 러닝벨트", "23": "런 익스퍼트 이펙터 OTC 삭스", "24": "X-BIONIC 러닝캡", "26": "런 퍼폼 삭스", "29": "PATHFLOW 러닝벨트", "30": "트레일런 디스커버 삭스", "32": "아나토믹스 삭스", "39": "PATHFLOW 러닝벨트"}};
+if (!sharedData) {
+  preCalculatedData = EMBEDDED_RESULT;
+  viewerMode = true;
+  document.getElementById('adminArea').style.display = 'none';
+  const sb = document.getElementById('startBtn');
+  sb.innerText = "럭키드로우 확인하기 (추첨 재생)";
+  sb.style.background = "#c0392b";
+}
+
+if(sharedData) {
+  try {
+    const decodedStr = decodeURIComponent(atob(sharedData).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    
+    preCalculatedData = JSON.parse(decodedStr);
+    viewerMode = true;
+
+    // 참가자 모드 뷰
+    document.getElementById('adminArea').style.display = 'none';
+    const startBtn = document.getElementById('startBtn');
+    startBtn.innerText = "럭키드로우 확인하기 (추첨 재생)";
+    startBtn.style.background = "#c0392b"; 
+
+  } catch(e) {
+    alert("올바르지 않은 공유 링크입니다. 관리자 모드로 시작합니다.");
+  }
+}
+
+// --- 2. 메인 실행 함수 ---
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  let participants = [];
+  let winningResults = {};
+
+  if (viewerMode) {
+    participants = preCalculatedData.participants;
+    winningResults = preCalculatedData.winningResults;
+  } else {
+    const raw = document.getElementById('namesInput').value.trim();
+    participants = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+    
+    if(participants.length < 2) return alert('참가자를 2명 이상 입력해주세요.');
+
+    let drawQueue = [];
+    prizes.forEach(p => {
+      // [수정] 상품명 앞뒤 공백 제거 후 저장
+      const prizeName = p.name.trim();
+      for(let i=0; i<p.qty; i++) {
+        if(prizeName !== '') drawQueue.push(prizeName);
+      }
+    });
+
+    if(drawQueue.length === 0) return alert('상품을 설정해주세요.');
+    if(drawQueue.length > participants.length) return alert('상품 개수가 참가자 수보다 많습니다!');
+
+    let shuffledIndices = shuffle([...Array(participants.length).keys()]);
+    for(let i=0; i<drawQueue.length; i++){
+      winningResults[shuffledIndices[i]] = drawQueue[i];
+    }
+  }
+
+  document.getElementById('adminArea').style.display = 'none';
+  document.getElementById('startBtn').style.display = 'none';
+  
+  const cabinet = document.getElementById('drawCabinet');
+  cabinet.style.display = 'block';
+
+  const gridBoard = document.getElementById('gridBoard');
+  const cols = participants.length > 30 ? 5 : (participants.length > 16 ? 4 : 3); 
+  gridBoard.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  gridBoard.innerHTML = '';
+  
+  participants.forEach((name, index) => {
+    const card = document.createElement('div');
+    card.className = 'name-card';
+    card.innerHTML = `<span class="name-text">${name}</span><span class="prize-label"></span>`;
+    gridBoard.appendChild(card);
+  });
+
+  // [수정] 애니메이션: 한 명씩 순서대로 당첨 공개
+  const cards = document.querySelectorAll('.name-card');
+  const statusEl = document.getElementById('drawStatus');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  // 공개 순서: 당첨자 목록을 섞어서 한 명씩 (결과 자체는 이미 정해져 있음)
+  const revealOrder = shuffle(Object.keys(winningResults).map(Number));
+  const revealed = new Set();
+
+  async function runSequentialDraw() {
+    // 시작 전 짧게 전체 깜빡임
+    for (let t = 0; t < 12; t++) {
+      cards.forEach(c => c.classList.remove('flashing'));
+      for (let i = 0; i < cols; i++) cards[Math.floor(Math.random() * cards.length)].classList.add('flashing');
+      await sleep(80);
+    }
+    cards.forEach(c => c.classList.remove('flashing'));
+
+    for (let n = 0; n < revealOrder.length; n++) {
+      const target = revealOrder[n];
+      const prize = winningResults[target];
+      statusEl.innerHTML = `<div class="count">DRAW ${n + 1} / ${revealOrder.length}</div><div class="prize">${prize}</div>`;
+      await sleep(500);
+
+      // 아직 안 뽑힌 카드들 사이를 돌다가 점점 느려지며 당첨자에게 멈춤
+      const pool = [...cards.keys()].filter(i => !revealed.has(i));
+      const steps = 12;
+      let prev = -1;
+      for (let s = 0; s < steps; s++) {
+        if (prev >= 0) cards[prev].classList.remove('flashing');
+        let idx;
+        if (s === steps - 1) idx = target;
+        else { do { idx = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && idx === prev); }
+        cards[idx].classList.add('flashing');
+        prev = idx;
+        await sleep(50 + Math.pow(s / steps, 2) * 240);
+      }
+      cards[target].classList.remove('flashing');
+      cards[target].classList.add('winner');
+      cards[target].querySelector('.prize-label').innerText = prize;
+      revealed.add(target);
+      await sleep(700);
+    }
+
+    cards.forEach((card, index) => { if (!revealed.has(index)) card.classList.add('dimmed'); });
+    statusEl.innerHTML = `<div class="count">ALL ${revealOrder.length} WINNERS</div><div class="prize">추첨 완료</div>`;
+
+    if (!viewerMode) generateShareLink(participants, winningResults);
+  }
+  runSequentialDraw();
+});
+
+// --- 3. 공유 링크 생성 함수 (관리자 전용) ---
+function generateShareLink(participants, winningResults) {
+  const dataObj = { participants, winningResults };
+  
+  const encodedData = btoa(encodeURIComponent(JSON.stringify(dataObj)).replace(/%([0-9A-F]{2})/g,
+      function toSolidBytes(match, p1) {
+          return String.fromCharCode('0x' + p1);
+  }));
+
+  const baseUrl = window.location.href.split('?')[0].split('#')[0]; 
+  // [수정] base64의 '+', '/', '='가 링크에서 깨지지 않도록 인코딩
+  const shareUrl = `${baseUrl}?data=${encodeURIComponent(encodedData)}`;
+
+  document.getElementById('sharePanel').style.display = 'block';
+  document.getElementById('shareUrl').value = shareUrl;
+}
+
+function copyLink() {
+  const urlBox = document.getElementById('shareUrl');
+  const text = urlBox.value;
+  const done = () => alert('참가자 공유용 링크가 복사되었습니다!');
+  // [수정] 최신 브라우저는 clipboard API, 안 되면 기존 방식으로
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done).catch(() => {
+      urlBox.select(); document.execCommand('copy'); done();
+    });
+  } else {
+    urlBox.select();
+    document.execCommand('copy');
+    done();
+  }
+}
+</script>
+</body>
+</html>
