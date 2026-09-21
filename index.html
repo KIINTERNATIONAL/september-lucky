@@ -70,6 +70,13 @@
     font-family:'Bebas Neue'; letter-spacing:.15em; font-size:18px; color:#fdf8ee; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
   }
 
+  .draw-status {
+    text-align:center; min-height:52px; margin:-4px 0 12px;
+    color:#fdf8ee; text-shadow:1px 1px 2px rgba(0,0,0,.3);
+  }
+  .draw-status .count { font-family:'Bebas Neue'; font-size:15px; letter-spacing:.15em; opacity:.85; }
+  .draw-status .prize { font-size:20px; font-weight:900; margin-top:2px; }
+
   .grid-board {
     display: grid; gap: 8px; background: var(--cream);
     padding: 16px; border-radius: 12px; border: 4px solid #fffaf0;
@@ -116,6 +123,17 @@
     width: 100%; padding: 10px; margin: 10px 0; border-radius: 6px; border: 1px solid var(--line);
     font-size: 12px; color: var(--sub); background: #fdfbf7; word-break: break-all;
   }
+
+  /* 추첨 방식 안내 (모두에게 보임) */
+  .method {
+    width:100%; max-width:720px; margin-top:20px;
+    background:#fff; border:1px solid var(--line); border-radius:16px;
+    padding:20px 22px;
+  }
+  .method h3 { margin:0 0 12px; font-size:15px; font-weight:900; color:var(--ink); }
+  .method ul { margin:0; padding-left:18px; }
+  .method li { font-size:13.5px; line-height:1.75; color:var(--sub); margin-bottom:4px; word-break:keep-all; }
+  .method li strong { color:var(--ink); }
 </style>
 </head>
 <body>
@@ -146,6 +164,7 @@
 <!-- 전광판 -->
 <div class="cabinet" id="drawCabinet">
   <div class="marquee">✦ WINNERS BOARD ✦</div>
+  <div class="draw-status" id="drawStatus"></div>
   <div class="grid-board" id="gridBoard"></div>
 </div>
 
@@ -159,6 +178,18 @@
   <textarea id="shareUrl" rows="3" readonly></textarea>
   <button onclick="copyLink()" style="background:var(--sub); color:#fff; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:bold;">링크 복사하기</button>
 </div>
+
+<!-- 추첨 방식 안내 -->
+<section class="method" id="methodInfo">
+  <h3>추첨 방식 안내</h3>
+  <ul>
+    <li><strong>모든 참가자가 같은 확률</strong>로 추첨됩니다. 기록이나 순위는 당첨 확률에 영향을 주지 않습니다.</li>
+    <li>참가자 명단 전체를 <strong>피셔-예이츠(Fisher–Yates) 셔플</strong>로 무작위로 섞은 뒤, 섞인 순서대로 상품을 한 개씩 배정합니다. 특정 이름이나 명단 순서가 유리해지지 않는 표준 무작위 섞기 방식입니다.</li>
+    <li>한 사람당 상품은 최대 1개이며, 중복 당첨은 없습니다.</li>
+    <li>추첨은 한 번만 실행되고, 그 결과가 이 링크에 그대로 저장되어 있습니다. 누가 언제 열어도 같은 결과가 재생됩니다.</li>
+    <li>화면에서 불빛이 돌며 한 명씩 공개되는 장면은 연출입니다. 당첨 결과는 추첨을 실행한 순간 이미 확정됩니다.</li>
+  </ul>
+</section>
 
 <script>
 // --- 요청하신 상품 세팅 ---
@@ -182,10 +213,21 @@ function renderPrizeRows(){
 }
 renderPrizeRows();
 
+// [수정] 브라우저 암호학적 난수(crypto.getRandomValues) 사용, 편향 없는 정수 뽑기
+function randomInt(max) {
+  if (window.crypto && crypto.getRandomValues) {
+    const limit = Math.floor(0x100000000 / max) * max;
+    const buf = new Uint32Array(1);
+    do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
+    return buf[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+}
+
 function shuffle(array) {
   let currentIndex = array.length, randomIndex;
   while (currentIndex !== 0) {
-    randomIndex = Math.floor(Math.random() * currentIndex);
+    randomIndex = randomInt(currentIndex);
     currentIndex--;
     [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
   }
@@ -194,7 +236,9 @@ function shuffle(array) {
 
 // --- 1. 링크로 접속한 참가자인지 확인 (데이터 복호화) ---
 const urlParams = new URLSearchParams(window.location.search);
-const sharedData = urlParams.get('data');
+// [수정] URLSearchParams는 '+'를 공백으로 바꿔서 읽기 때문에, 공백을 다시 '+'로 복원
+// → 이미 복사해 둔 예전 링크도 이 수정만으로 정상 작동
+const sharedData = (urlParams.get('data') || '').replace(/ /g, '+');
 let viewerMode = false;
 let preCalculatedData = null;
 
@@ -234,8 +278,10 @@ document.getElementById('startBtn').addEventListener('click', ()=>{
 
     let drawQueue = [];
     prizes.forEach(p => {
+      // [수정] 상품명 앞뒤 공백 제거 후 저장
+      const prizeName = p.name.trim();
       for(let i=0; i<p.qty; i++) {
-        if(p.name.trim() !== '') drawQueue.push(p.name);
+        if(prizeName !== '') drawQueue.push(prizeName);
       }
     });
 
@@ -266,37 +312,56 @@ document.getElementById('startBtn').addEventListener('click', ()=>{
     gridBoard.appendChild(card);
   });
 
-  // 애니메이션 실행
-  let flashCount = 0;
-  let maxFlashes = 45; // 깜빡이는 시간
-  let cards = document.querySelectorAll('.name-card');
-  
-  let flashInterval = setInterval(() => {
-    cards.forEach(c => c.classList.remove('flashing'));
-    for(let i=0; i<cols; i++){ 
-      let rand = Math.floor(Math.random() * participants.length);
-      cards[rand].classList.add('flashing');
-    }
-    flashCount++;
-    
-    if(flashCount >= maxFlashes) {
-      clearInterval(flashInterval);
-      cards.forEach(c => c.classList.remove('flashing'));
-      
-      cards.forEach((card, index) => {
-        if(winningResults[index]) {
-          card.classList.add('winner');
-          card.querySelector('.prize-label').innerText = winningResults[index];
-        } else {
-          card.classList.add('dimmed');
-        }
-      });
+  // [수정] 애니메이션: 한 명씩 순서대로 당첨 공개
+  const cards = document.querySelectorAll('.name-card');
+  const statusEl = document.getElementById('drawStatus');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-      if(!viewerMode) {
-        generateShareLink(participants, winningResults);
-      }
+  // 공개 순서: 당첨자 목록을 섞어서 한 명씩 (결과 자체는 이미 정해져 있음)
+  const revealOrder = shuffle(Object.keys(winningResults).map(Number));
+  const revealed = new Set();
+
+  async function runSequentialDraw() {
+    // 시작 전 짧게 전체 깜빡임
+    for (let t = 0; t < 12; t++) {
+      cards.forEach(c => c.classList.remove('flashing'));
+      for (let i = 0; i < cols; i++) cards[Math.floor(Math.random() * cards.length)].classList.add('flashing');
+      await sleep(80);
     }
-  }, 80);
+    cards.forEach(c => c.classList.remove('flashing'));
+
+    for (let n = 0; n < revealOrder.length; n++) {
+      const target = revealOrder[n];
+      const prize = winningResults[target];
+      statusEl.innerHTML = `<div class="count">DRAW ${n + 1} / ${revealOrder.length}</div><div class="prize">${prize}</div>`;
+      await sleep(500);
+
+      // 아직 안 뽑힌 카드들 사이를 돌다가 점점 느려지며 당첨자에게 멈춤
+      const pool = [...cards.keys()].filter(i => !revealed.has(i));
+      const steps = 12;
+      let prev = -1;
+      for (let s = 0; s < steps; s++) {
+        if (prev >= 0) cards[prev].classList.remove('flashing');
+        let idx;
+        if (s === steps - 1) idx = target;
+        else { do { idx = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && idx === prev); }
+        cards[idx].classList.add('flashing');
+        prev = idx;
+        await sleep(50 + Math.pow(s / steps, 2) * 240);
+      }
+      cards[target].classList.remove('flashing');
+      cards[target].classList.add('winner');
+      cards[target].querySelector('.prize-label').innerText = prize;
+      revealed.add(target);
+      await sleep(700);
+    }
+
+    cards.forEach((card, index) => { if (!revealed.has(index)) card.classList.add('dimmed'); });
+    statusEl.innerHTML = `<div class="count">ALL ${revealOrder.length} WINNERS</div><div class="prize">추첨 완료</div>`;
+
+    if (!viewerMode) generateShareLink(participants, winningResults);
+  }
+  runSequentialDraw();
 });
 
 // --- 3. 공유 링크 생성 함수 (관리자 전용) ---
@@ -308,8 +373,9 @@ function generateShareLink(participants, winningResults) {
           return String.fromCharCode('0x' + p1);
   }));
 
-  const baseUrl = window.location.href.split('?')[0]; 
-  const shareUrl = `${baseUrl}?data=${encodedData}`;
+  const baseUrl = window.location.href.split('?')[0].split('#')[0]; 
+  // [수정] base64의 '+', '/', '='가 링크에서 깨지지 않도록 인코딩
+  const shareUrl = `${baseUrl}?data=${encodeURIComponent(encodedData)}`;
 
   document.getElementById('sharePanel').style.display = 'block';
   document.getElementById('shareUrl').value = shareUrl;
@@ -317,9 +383,18 @@ function generateShareLink(participants, winningResults) {
 
 function copyLink() {
   const urlBox = document.getElementById('shareUrl');
-  urlBox.select();
-  document.execCommand('copy');
-  alert('참가자 공유용 링크가 복사되었습니다!');
+  const text = urlBox.value;
+  const done = () => alert('참가자 공유용 링크가 복사되었습니다!');
+  // [수정] 최신 브라우저는 clipboard API, 안 되면 기존 방식으로
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done).catch(() => {
+      urlBox.select(); document.execCommand('copy'); done();
+    });
+  } else {
+    urlBox.select();
+    document.execCommand('copy');
+    done();
+  }
 }
 </script>
 </body>
